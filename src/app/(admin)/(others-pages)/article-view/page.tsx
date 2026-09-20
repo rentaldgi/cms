@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { apiFetch } from "@/lib/api";
 interface ArticleView {
   article_id: number;
   title: string;
@@ -17,12 +18,12 @@ export default function ArticleViewPage() {
   const fetchViews = async (entityFilter = "") => {
     setLoading(true);
     try {
-      let url = "https://backend.ptdahliaglobalindo.id/article-views";
+      let url = "/article-views";
       if (entityFilter) {
         url += `?entity=${entityFilter}`;
       }
 
-      const res = await fetch(url);
+      const res = await apiFetch(url);
       if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`);
       }

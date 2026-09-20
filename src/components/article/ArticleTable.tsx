@@ -14,6 +14,7 @@ import Pagination from "../Pagination";
 import { PencilSquareIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { useSearch } from "@/layout/SearchContext";
 
+import { apiFetch, assetUrl } from "@/lib/api";
 interface Article {
   id: number;
   entity: string;
@@ -40,9 +41,7 @@ export default function ArticleTable() {
 
   const fetchArticles = async (): Promise<void> => {
     try {
-      const res = await fetch("https://backend.ptdahliaglobalindo.id/article", {
-        cache: "no-store",
-      });
+      const res = await apiFetch("/article");
       if (!res.ok) throw new Error("Gagal mengambil data artikel.");
       const data: Article[] = await res.json();
       setArticles(data);
@@ -59,9 +58,7 @@ export default function ArticleTable() {
     if (!confirm("Yakin ingin menghapus artikel ini?")) return;
 
     try {
-      const res = await fetch(`https://backend.ptdahliaglobalindo.id/article/${id}`, {
-        method: "DELETE",
-      });
+      const res = await apiFetch(`/article/${id}`, { method: "DELETE" });
 
       if (!res.ok) {
         const errorData = await res.json();
@@ -169,7 +166,7 @@ export default function ArticleTable() {
                 <TableCell className="text-center px-4 py-2">
                   {article.thumbnail?.trim() ? (
                     <Image
-                      src={`https://backend.ptdahliaglobalindo.id${article.thumbnail.replace(/#/g, '%23')}`}
+                      src={assetUrl(article.thumbnail)}
                       alt="Thumbnail"
                       width={80}
                       height={48}

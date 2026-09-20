@@ -1,49 +1,55 @@
-export async function fetchArticles(token?: string) {
-  const res = await fetch(`https://backend.ptdahliaglobalindo.id/article`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    cache: "no-store",
-  });
+import { BACKEND_URL } from "@/lib/config";
 
-  const data = await res.json();
+/**
+ * Semua permintaan ke backend lewat sini.
+ *
+ * Di browser, permintaan dikirim ke `/api/backend/...` supaya token login
+ * (cookie httpOnly) ditempelkan oleh server Next, bukan oleh JavaScript.
+ * Di server (komponen server), backend dipanggil langsung.
+ */
+export function apiUrl(path: string) {
+  const clean = path.startsWith("/") ? path.slice(1) : path;
 
-  // Jika tidak array, kembalikan array kosong
-  if (!Array.isArray(data?.data)) {
-    console.warn("fetchArticles expected array but got:", data);
+  return typeof window === "undefined"
+    ? `${BACKEND_URL}/${clean}`
+    : `/api/backend/${clean}`;
+}
+
+export function apiFetch(path: string, options: RequestInit = {}) {
+  return fetch(apiUrl(path), { cache: "no-store", ...options });
+}
+
+/** URL file dari backend (thumbnail artikel, dll). */
+export function assetUrl(path?: string | null) {
+  if (!path) return "";
+  if (/^https?:\/\//.test(path)) return path;
+  return `${BACKEND_URL}${path.startsWith("/") ? "" : "/"}${path}`;
+}
+
+export async function fetchArticles() {
+  const res = await apiFetch("/article");
+
+  if (!res.ok) {
+    console.warn("Gagal mengambil artikel:", res.status);
     return [];
   }
 
-  return data.data;
-}
-
-export async function fetchArticleBySlug(slug: string, token?: string) {
-  const res = await fetch(`https://backend.ptdahliaglobalindo.id/article/${slug}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    cache: "no-store",
-  });
   const data = await res.json();
-  return data;
+
+  // Endpoint mengembalikan array langsung; bentuk { data: [...] } ikut ditangani
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.data)) return data.data;
+
+  console.warn("Bentuk data artikel tidak dikenali:", data);
+  return [];
 }
 
-// export async function fetchCategories(token?: string) {
-//   const res = await fetch("https://backend.ptdahliaglobalindo.id/category", {
-//     headers: token ? { Authorization: `Bearer ${token}` } : {},
-//     cache: "no-store",
-//   });
-//   const data = await res.json();
-//   return Array.isArray(data.data) ? data.data : data;
-// }
-
-export async function updateArticle(slug: string, formData: FormData, token?: string) {
-  const res = await fetch(`https://backend.ptdahliaglobalindo.id/article/${slug}`, {
-    method: "POST", // Use POST for FormData, backend should handle it as an update
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: formData,
-  });
+export async function fetchArticleBySlug(slug: string) {
+  const res = await apiFetch(`/article/${slug}`);
 
   if (!res.ok) {
-    const errorData = await res.json();
-    throw new Error(errorData.message || "Gagal memperbarui artikel.");
+    throw new Error("Artikel tidak ditemukan");
   }
 
-  return await res.json();
+  return res.json();
 }

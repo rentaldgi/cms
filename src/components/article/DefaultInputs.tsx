@@ -10,6 +10,7 @@ import FileInput from "./FileInput";
 import Select from "./Select";
 import RadioGroup from "./Radio";
 
+import { apiFetch, assetUrl } from "@/lib/api";
 interface ArticleData {
   id: number;
   title: string;
@@ -46,7 +47,7 @@ export default function DefaultInputs({ editMode = false, initialData }: Props) 
       setContent(initialData.content || "");
       setStatus(String(initialData.status ?? "0"));
       setOldThumbnailUrl(
-        initialData.thumbnail ? `https://backend.ptdahliaglobalindo.id${initialData.thumbnail}` : ""
+        initialData.thumbnail ? assetUrl(initialData.thumbnail) : ""
       );
     }
   }, [editMode, initialData]);
@@ -54,9 +55,7 @@ export default function DefaultInputs({ editMode = false, initialData }: Props) 
   const handleSubmit = async () => {
     setMessage("");
 
-    const url = editMode && id
-      ? `https://backend.ptdahliaglobalindo.id/article/${id}`
-      : "https://backend.ptdahliaglobalindo.id/article";
+    const url = editMode && id ? `/article/${id}` : "/article";
 
     const method = editMode ? "PUT" : "POST";
 
@@ -76,12 +75,12 @@ export default function DefaultInputs({ editMode = false, initialData }: Props) 
           formData.append("thumbnail", thumbnail);
         }
 
-        response = await fetch(url, {
+        response = await apiFetch(url, {
           method,
           body: formData,
         });
       } else {
-        response = await fetch(url, {
+        response = await apiFetch(url, {
           method,
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
