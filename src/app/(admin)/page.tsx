@@ -1,30 +1,9 @@
 import StatsCards from "@/components/dashboard/StatsCards";
 import LatestArticles from "@/components/dashboard/LatestArticles";
-import { fetchArticles } from "@/lib/server-api";
-
-type Article = {
-  id: number;
-  title: string;
-  slug: string;
-  entity: string;
-  thumbnail?: string;
-  status?: boolean | number;
-  publishedAt?: string;
-  createdAt?: string;
-};
+import { fetchDashboardSummary } from "@/lib/dashboard";
 
 export default async function AdminDashboardPage() {
-  const articles: Article[] = await fetchArticles();
-
-  const isPublished = (status?: boolean | number) =>
-    status === true || status === 1;
-
-  const publishedCount = articles.filter((a) => isPublished(a.status)).length;
-
-  const perEntity = articles.reduce<Record<string, number>>((acc, article) => {
-    acc[article.entity] = (acc[article.entity] ?? 0) + 1;
-    return acc;
-  }, {});
+  const summary = await fetchDashboardSummary();
 
   return (
     <div className="space-y-5">
@@ -38,13 +17,13 @@ export default async function AdminDashboardPage() {
       </div>
 
       <StatsCards
-        articleCount={articles.length}
-        publishedCount={publishedCount}
-        draftCount={articles.length - publishedCount}
-        perEntity={perEntity}
+        articleCount={summary.totalArticles}
+        publishedCount={summary.published}
+        draftCount={summary.draft}
+        perEntity={summary.perEntity}
       />
 
-      <LatestArticles articles={articles} />
+      <LatestArticles articles={summary.latest} />
     </div>
   );
 }

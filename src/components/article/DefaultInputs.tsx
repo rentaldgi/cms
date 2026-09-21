@@ -81,7 +81,7 @@ export default function DefaultInputs({ editMode = false, initialData }: Props) 
 
     setSaving(true);
 
-    const url = editMode && id ? `/article/${id}` : "/article";
+    const url = editMode && id ? `/admin/article/${id}` : "/admin/article";
 
     const method = editMode ? "PUT" : "POST";
 

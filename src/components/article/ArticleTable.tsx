@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -16,13 +16,15 @@ import { PencilSquareIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { useSearch } from "@/layout/SearchContext";
 import { apiFetch, assetUrl } from "@/lib/api";
 import { ENTITIES, entityLabel } from "@/lib/entities";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 interface Article {
   id: number;
   entity: string;
   title: string;
   slug: string;
-  content: string;
+  /** Cuplikan isi dari backend; isi lengkap tidak ikut dikirim di daftar */
+  excerpt: string;
   thumbnail: string;
   publishedAt: string;
   // Backend mengirim boolean, versi lama mengirim 0/1
@@ -30,6 +32,13 @@ interface Article {
   createdAt?: string;
   /** Jumlah pembaca, dari endpoint /admin/article */
   views?: number;
+}
+
+interface PageMeta {
+  total: number;
+  perPage: number;
+  currentPage: number;
+  lastPage: number;
 }
 
 type SortKey = "newest" | "most" | "least";
@@ -40,7 +49,7 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "least", label: "Paling sedikit dibaca" },
 ];
 
-const ITEMS_PER_PAGE = 8;
+const ITEMS_PER_PAGE = 10;
 
 const headers = [
   { label: "Artikel", className: "" },
@@ -53,6 +62,8 @@ const headers = [
 
 export default function ArticleTable() {
   const [articles, setArticles] = useState<Article[]>([]);
+  const [meta, setMeta] = useState<PageMeta | null>(null);
+  const [summary, setSummary] = useState({ totalArticles: 0, totalViews: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -64,38 +75,60 @@ export default function ArticleTable() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const { searchTerm, setSearchTerm } = useSearch();
+  const debouncedSearch = useDebouncedValue(searchTerm.trim());
+
+  const requestId = useRef(0);
 
   const loadArticles = useCallback(async () => {
+    const id = ++requestId.current;
+    setLoading(true);
+
+    const params = new URLSearchParams({
+      page: String(currentPage),
+      limit: String(ITEMS_PER_PAGE),
+      sort: sortBy,
+    });
+    if (debouncedSearch) params.set("search", debouncedSearch);
+    if (entityFilter) params.set("entity", entityFilter);
+    if (statusFilter) params.set("status", statusFilter);
+    if (dateFrom) params.set("dateFrom", dateFrom);
+    if (dateTo) params.set("dateTo", dateTo);
+
     try {
-      const res = await apiFetch("/admin/article");
+      const res = await apiFetch(`/admin/article?${params}`);
       if (!res.ok) throw new Error("Gagal mengambil data artikel");
 
       const data = await res.json();
-      setArticles(Array.isArray(data) ? data : (data?.data ?? []));
+      if (id !== requestId.current) return;
+
+      setArticles(data.data ?? []);
+      setMeta(data.meta ?? null);
+      if (data.summary) setSummary(data.summary);
       setError(null);
     } catch (err) {
+      if (id !== requestId.current) return;
       console.error(err);
       setError("Gagal memuat data artikel. Silakan muat ulang halaman.");
     } finally {
-      setLoading(false);
+      if (id === requestId.current) setLoading(false);
     }
-  }, []);
+  }, [currentPage, sortBy, debouncedSearch, entityFilter, statusFilter, dateFrom, dateTo]);
 
   useEffect(() => {
     loadArticles();
   }, [loadArticles]);
 
-  // Tanpa ini, mencari saat berada di halaman 3 menampilkan tabel kosong
+  // Filter berubah → kembali ke halaman 1
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, sortBy, entityFilter, statusFilter, dateFrom, dateTo]);
+  }, [debouncedSearch, sortBy, entityFilter, statusFilter, dateFrom, dateTo]);
 
   const handleDelete = async (article: Article) => {
     if (!confirm(`Hapus artikel "${article.title}"?`)) return;
 
     setDeletingId(article.id);
     try {
-      const res = await apiFetch(`/article/${article.id}`, {
+      const res = await apiFetch(`/admin/article/${article.id}`, {
         method: "DELETE",
       });
 
@@ -104,7 +137,12 @@ export default function ArticleTable() {
         throw new Error(data?.message || "Gagal menghapus artikel");
       }
 
-      await loadArticles();
+      // Artikel terakhir di halaman ini dihapus → mundur satu halaman
+      if (articles.length === 1 && currentPage > 1) {
+        setCurrentPage(currentPage - 1);
+      } else {
+        await loadArticles();
+      }
       setNotice("Artikel berhasil dihapus");
       setTimeout(() => setNotice(null), 3000);
     } catch (err) {
@@ -126,7 +164,6 @@ export default function ArticleTable() {
   const isPublished = (status: boolean | number) =>
     status === true || status === 1;
 
-  const keyword = searchTerm.toLowerCase();
   const hasFilter = Boolean(
     searchTerm || entityFilter || statusFilter || dateFrom || dateTo
   );
@@ -139,52 +176,19 @@ export default function ArticleTable() {
     setDateTo("");
   };
 
-  const filtered = articles.filter((article) => {
-    const matchesKeyword = [article.title, article.slug, article.content].some(
-      (field) => (field || "").toLowerCase().includes(keyword)
-    );
-    if (!matchesKeyword) return false;
-
-    if (entityFilter && article.entity !== entityFilter) return false;
-
-    if (statusFilter === "published" && !isPublished(article.status)) return false;
-    if (statusFilter === "draft" && isPublished(article.status)) return false;
-
-    // Bandingkan sebagai teks YYYY-MM-DD, sama dengan nilai <input type="date">
-    const date = (article.publishedAt || "").slice(0, 10);
-    if (dateFrom && (!date || date < dateFrom)) return false;
-    if (dateTo && (!date || date > dateTo)) return false;
-
-    return true;
-  });
-
-  const totalViews = articles.reduce((sum, a) => sum + (a.views ?? 0), 0);
-
-  const sorted = [...filtered].sort((a, b) => {
-    if (sortBy === "most") return (b.views ?? 0) - (a.views ?? 0);
-    if (sortBy === "least") return (a.views ?? 0) - (b.views ?? 0);
-    return 0; // "newest": backend sudah mengurutkan dari yang terbaru
-  });
-
-  const totalPages = Math.ceil(sorted.length / ITEMS_PER_PAGE);
-  const paginated = sorted.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
-
   return (
     <div>
       <div className="mb-5 grid gap-4 sm:grid-cols-2">
         <div className="rounded-xl border border-gray-200 p-5 dark:border-gray-800">
           <p className="text-sm text-gray-500 dark:text-gray-400">Total Dilihat</p>
           <p className="mt-1 text-2xl font-semibold text-gray-800 dark:text-white/90">
-            {loading ? "..." : totalViews.toLocaleString("id-ID")}
+            {meta ? summary.totalViews.toLocaleString("id-ID") : "..."}
           </p>
         </div>
         <div className="rounded-xl border border-gray-200 p-5 dark:border-gray-800">
           <p className="text-sm text-gray-500 dark:text-gray-400">Total Artikel</p>
           <p className="mt-1 text-2xl font-semibold text-gray-800 dark:text-white/90">
-            {loading ? "..." : articles.length.toLocaleString("id-ID")}
+            {meta ? summary.totalArticles.toLocaleString("id-ID") : "..."}
           </p>
         </div>
       </div>
@@ -315,8 +319,12 @@ export default function ArticleTable() {
             </TableRow>
           </TableHeader>
 
-          <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
-            {loading ? (
+          <TableBody
+            className={`divide-y divide-gray-100 transition-opacity dark:divide-gray-800 ${
+              loading && articles.length > 0 ? "opacity-50" : ""
+            }`}
+          >
+            {loading && articles.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={headers.length}
@@ -334,7 +342,7 @@ export default function ArticleTable() {
                   {error}
                 </TableCell>
               </TableRow>
-            ) : paginated.length === 0 ? (
+            ) : articles.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={headers.length}
@@ -346,7 +354,7 @@ export default function ArticleTable() {
                 </TableCell>
               </TableRow>
             ) : (
-              paginated.map((article) => (
+              articles.map((article) => (
                 <TableRow
                   key={article.id}
                   className="transition hover:bg-gray-50 dark:hover:bg-white/[0.03]"
@@ -373,7 +381,7 @@ export default function ArticleTable() {
                           {article.title}
                         </p>
                         <p className="mt-0.5 hidden max-w-xs truncate text-xs text-gray-500 lg:block dark:text-gray-400">
-                          {article.content}
+                          {article.excerpt}
                         </p>
                       </div>
                     </div>
@@ -426,9 +434,9 @@ export default function ArticleTable() {
 
       <Pagination
         currentPage={currentPage}
-        totalPages={totalPages}
+        totalPages={meta?.lastPage ?? 0}
         onPageChange={setCurrentPage}
-        totalItems={sorted.length}
+        totalItems={meta?.total ?? 0}
         itemsPerPage={ITEMS_PER_PAGE}
       />
     </div>

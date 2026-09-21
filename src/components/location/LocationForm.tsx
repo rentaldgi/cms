@@ -85,7 +85,7 @@ export default function LocationForm({ initialData }: Props) {
     setSaving(true);
     try {
       const res = await apiFetch(
-        editMode ? `/locations/${initialData!.id}` : "/locations",
+        editMode ? `/admin/locations/${initialData!.id}` : "/admin/locations",
         {
           method: editMode ? "PUT" : "POST",
           headers: { "Content-Type": "application/json" },

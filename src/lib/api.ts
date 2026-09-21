@@ -27,7 +27,7 @@ export function assetUrl(path?: string | null) {
 }
 
 export async function fetchArticleBySlug(slug: string) {
-  const res = await apiFetch(`/article/${slug}`);
+  const res = await apiFetch(`/admin/article/${slug}`);
 
   if (!res.ok) {
     throw new Error("Artikel tidak ditemukan");

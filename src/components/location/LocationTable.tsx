@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowTopRightOnSquareIcon,
@@ -20,6 +20,14 @@ import { useSearch } from "@/layout/SearchContext";
 import { apiFetch } from "@/lib/api";
 import { ENTITIES, entityLabel } from "@/lib/entities";
 import type { LocationData } from "./LocationForm";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+
+interface PageMeta {
+  total: number;
+  perPage: number;
+  currentPage: number;
+  lastPage: number;
+}
 
 const ITEMS_PER_PAGE = 10;
 
@@ -37,6 +45,8 @@ const labelClass = "mb-1.5 block text-xs font-medium text-gray-500 dark:text-gra
 
 export default function LocationTable() {
   const [locations, setLocations] = useState<LocationData[]>([]);
+  const [meta, setMeta] = useState<PageMeta | null>(null);
+  const [summary, setSummary] = useState({ totalLocations: 0, activeLocations: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -45,20 +55,38 @@ export default function LocationTable() {
   const [entityFilter, setEntityFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<"" | "active" | "inactive">("");
   const { searchTerm, setSearchTerm } = useSearch();
+  const debouncedSearch = useDebouncedValue(searchTerm.trim());
+  const requestId = useRef(0);
 
   const loadLocations = useCallback(async () => {
+    const id = ++requestId.current;
+    setLoading(true);
+
+    const params = new URLSearchParams({
+      page: String(currentPage),
+      limit: String(ITEMS_PER_PAGE),
+    });
+    if (debouncedSearch) params.set("search", debouncedSearch);
+    if (entityFilter) params.set("entity", entityFilter);
+    if (statusFilter) params.set("status", statusFilter);
+
     try {
-      const res = await apiFetch("/admin/locations");
+      const res = await apiFetch(`/admin/locations?${params}`);
       if (!res.ok) throw new Error();
       const data = await res.json();
-      setLocations(Array.isArray(data) ? data : []);
+      if (id !== requestId.current) return;
+
+      setLocations(data.data ?? []);
+      setMeta(data.meta ?? null);
+      if (data.summary) setSummary(data.summary);
       setError(null);
     } catch {
+      if (id !== requestId.current) return;
       setError("Gagal memuat data lokasi. Silakan muat ulang halaman.");
     } finally {
-      setLoading(false);
+      if (id === requestId.current) setLoading(false);
     }
-  }, []);
+  }, [currentPage, debouncedSearch, entityFilter, statusFilter]);
 
   useEffect(() => {
     loadLocations();
@@ -66,7 +94,7 @@ export default function LocationTable() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, entityFilter, statusFilter]);
+  }, [debouncedSearch, entityFilter, statusFilter]);
 
   const flash = (message: string) => {
     setNotice(message);
@@ -78,7 +106,7 @@ export default function LocationTable() {
   const toggleStatus = async (location: LocationData) => {
     setBusyId(location.id);
     try {
-      const res = await apiFetch(`/locations/${location.id}`, {
+      const res = await apiFetch(`/admin/locations/${location.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -111,10 +139,14 @@ export default function LocationTable() {
 
     setBusyId(location.id);
     try {
-      const res = await apiFetch(`/locations/${location.id}`, { method: "DELETE" });
+      const res = await apiFetch(`/admin/locations/${location.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
 
-      await loadLocations();
+      if (locations.length === 1 && currentPage > 1) {
+        setCurrentPage(currentPage - 1);
+      } else {
+        await loadLocations();
+      }
       flash("Lokasi berhasil dihapus");
     } catch {
       setError("Gagal menghapus lokasi");
@@ -123,27 +155,7 @@ export default function LocationTable() {
     }
   };
 
-  const keyword = searchTerm.toLowerCase();
   const hasFilter = Boolean(searchTerm || entityFilter || statusFilter);
-
-  const filtered = locations.filter((location) => {
-    const matchesKeyword = [location.kota, location.alamat].some((field) =>
-      (field || "").toLowerCase().includes(keyword)
-    );
-    if (!matchesKeyword) return false;
-    if (entityFilter && location.entity !== entityFilter) return false;
-    if (statusFilter === "active" && !location.status) return false;
-    if (statusFilter === "inactive" && location.status) return false;
-    return true;
-  });
-
-  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
-  const paginated = filtered.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
-
-  const activeCount = locations.filter((l) => l.status).length;
 
   return (
     <div>
@@ -151,13 +163,13 @@ export default function LocationTable() {
         <div className="rounded-xl border border-gray-200 p-5 dark:border-gray-800">
           <p className="text-sm text-gray-500 dark:text-gray-400">Total Lokasi</p>
           <p className="mt-1 text-2xl font-semibold text-gray-800 dark:text-white/90">
-            {loading ? "..." : locations.length}
+            {meta ? summary.totalLocations : "..."}
           </p>
         </div>
         <div className="rounded-xl border border-gray-200 p-5 dark:border-gray-800">
           <p className="text-sm text-gray-500 dark:text-gray-400">Tampil di Website</p>
           <p className="mt-1 text-2xl font-semibold text-gray-800 dark:text-white/90">
-            {loading ? "..." : activeCount}
+            {meta ? summary.activeLocations : "..."}
           </p>
         </div>
       </div>
@@ -246,8 +258,12 @@ export default function LocationTable() {
             </TableRow>
           </TableHeader>
 
-          <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
-            {loading ? (
+          <TableBody
+            className={`divide-y divide-gray-100 transition-opacity dark:divide-gray-800 ${
+              loading && locations.length > 0 ? "opacity-50" : ""
+            }`}
+          >
+            {loading && locations.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={headers.length}
@@ -265,7 +281,7 @@ export default function LocationTable() {
                   {error}
                 </TableCell>
               </TableRow>
-            ) : paginated.length === 0 ? (
+            ) : locations.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={headers.length}
@@ -277,7 +293,7 @@ export default function LocationTable() {
                 </TableCell>
               </TableRow>
             ) : (
-              paginated.map((location) => (
+              locations.map((location) => (
                 <TableRow
                   key={location.id}
                   className="transition hover:bg-gray-50 dark:hover:bg-white/[0.03]"
@@ -353,9 +369,9 @@ export default function LocationTable() {
 
       <Pagination
         currentPage={currentPage}
-        totalPages={totalPages}
+        totalPages={meta?.lastPage ?? 0}
         onPageChange={setCurrentPage}
-        totalItems={filtered.length}
+        totalItems={meta?.total ?? 0}
         itemsPerPage={ITEMS_PER_PAGE}
       />
     </div>

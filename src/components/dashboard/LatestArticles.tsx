@@ -14,15 +14,8 @@ interface Article {
   createdAt?: string;
 }
 
-export default function LatestArticles({ articles }: { articles: Article[] }) {
-  const latest = [...articles]
-    .sort(
-      (a, b) =>
-        new Date(b.createdAt || b.publishedAt || 0).getTime() -
-        new Date(a.createdAt || a.publishedAt || 0).getTime()
-    )
-    .slice(0, 5);
-
+/** `articles` sudah berupa 5 artikel terbaru yang diurutkan backend. */
+export default function LatestArticles({ articles: latest }: { articles: Article[] }) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
       <div className="flex items-center justify-between">
