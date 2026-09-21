@@ -14,6 +14,7 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { GridIcon, ListIcon } from "../icons";
+import { MapPin } from "lucide-react";
 
 type SubItem = {
   name: string;
@@ -40,6 +41,11 @@ const navItems: NavItem[] = [
     name: "Artikel",
     path: "/article",
   },
+  {
+    icon: <MapPin />,
+    name: "Lokasi",
+    path: "/locations",
+  },
 ];
 
 const AppSidebar: React.FC = () => {
@@ -54,7 +60,13 @@ const AppSidebar: React.FC = () => {
   const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>({});
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  const isActive = useCallback((path: string) => path === pathname, [pathname]);
+  // Menu tetap menyala di halaman turunannya (mis. /locations/edit/3),
+  // kecuali Dashboard ("/") yang harus cocok persis
+  const isActive = useCallback(
+    (path: string) =>
+      path === "/" ? pathname === "/" : pathname === path || pathname.startsWith(`${path}/`),
+    [pathname]
+  );
 
   useEffect(() => {
     let matched = false;

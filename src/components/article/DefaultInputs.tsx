@@ -4,11 +4,11 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image"; 
 import ComponentCard from "../common/ComponentCard";
-import Label from "./Label";
-import Input from "./InputField";
-import FileInput from "./FileInput";
-import Select from "./Select";
-import RadioGroup from "./Radio";
+import Label from "@/components/form/Label";
+import Input from "@/components/form/InputField";
+import FileInput from "@/components/form/FileInput";
+import Select from "@/components/form/Select";
+import RadioGroup from "@/components/form/Radio";
 
 import { apiFetch, assetUrl } from "@/lib/api";
 import { ENTITIES } from "@/lib/entities";

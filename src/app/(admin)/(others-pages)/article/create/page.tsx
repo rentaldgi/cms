@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export default function CreateArticle() {
   return (
     <div>
-      <PageBreadcrumb pageTitle="Create article" />
+      <PageBreadcrumb pageTitle="Tambah Artikel" />
       
       {/* Container biasa tanpa grid */}
       <div className="space-y-6">

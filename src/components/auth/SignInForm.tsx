@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Label from "@/components/article/Label";
-import Input from "@/components/article/InputField";
+import Label from "@/components/form/Label";
+import Input from "@/components/form/InputField";
 import Button from "@/components/ui/button/Button";
 import { EyeCloseIcon, EyeIcon } from "@/icons";
 
