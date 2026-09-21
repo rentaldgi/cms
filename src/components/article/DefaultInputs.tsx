@@ -11,13 +11,23 @@ import Select from "./Select";
 import RadioGroup from "./Radio";
 
 import { apiFetch, assetUrl } from "@/lib/api";
+import { ENTITIES } from "@/lib/entities";
 interface ArticleData {
   id: number;
   title: string;
   entity: string;
   content: string;
   thumbnail?: string;
-  status: string | number;
+  // Backend mengirim boolean; data lama bisa berupa 0/1 atau "0"/"1"
+  status: boolean | string | number;
+  publishedAt?: string;
+}
+
+/** Ubah status apa pun bentuknya jadi nilai radio: "1" (terbit) atau "0" (draf). */
+function toStatusValue(status: ArticleData["status"] | undefined) {
+  return status === true || status === 1 || status === "1" || status === "true"
+    ? "1"
+    : "0";
 }
 
 interface Props {
@@ -34,18 +44,22 @@ export default function DefaultInputs({ editMode = false, initialData }: Props) 
   const [thumbnail, setThumbnail] = useState<File | null>(null);
   const [oldThumbnailUrl, setOldThumbnailUrl] = useState("");
   const [status, setStatus] = useState("0");
+  // Tanggal terbit asli dipertahankan saat mengedit, supaya tidak berubah
+  // jadi hari ini setiap kali artikel diperbaiki
+  const [publishedAt, setPublishedAt] = useState("");
   const [userId] = useState(1);
-  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
   const [id, setId] = useState<number | null>(null);
 
   useEffect(() => {
     if (editMode && initialData) {
-      console.log("Memuat data awal ke form:", initialData);
       setId(initialData.id);
       setTitle(initialData.title || "");
       setEntity(initialData.entity || "");
       setContent(initialData.content || "");
-      setStatus(String(initialData.status ?? "0"));
+      setStatus(toStatusValue(initialData.status));
+      setPublishedAt(initialData.publishedAt || "");
       setOldThumbnailUrl(
         initialData.thumbnail ? assetUrl(initialData.thumbnail) : ""
       );
@@ -53,7 +67,19 @@ export default function DefaultInputs({ editMode = false, initialData }: Props) 
   }, [editMode, initialData]);
 
   const handleSubmit = async () => {
-    setMessage("");
+    setError("");
+
+    if (!entity || !title.trim() || !content.trim()) {
+      setError("Entity, judul, dan konten harus diisi");
+      return;
+    }
+
+    if (!editMode && !thumbnail) {
+      setError("Thumbnail harus dipilih");
+      return;
+    }
+
+    setSaving(true);
 
     const url = editMode && id ? `/article/${id}` : "/article";
 
@@ -69,7 +95,7 @@ export default function DefaultInputs({ editMode = false, initialData }: Props) 
         formData.append("content", content);
         formData.append("userId", userId.toString());
         formData.append("status", status);
-        formData.append("publishedAt", new Date().toISOString());
+        formData.append("publishedAt", publishedAt || new Date().toISOString());
 
         if (thumbnail) {
           formData.append("thumbnail", thumbnail);
@@ -89,28 +115,34 @@ export default function DefaultInputs({ editMode = false, initialData }: Props) 
             content,
             userId,
             status,
-            publishedAt: new Date().toISOString(),
+            publishedAt: publishedAt || new Date().toISOString(),
           }),
         });
       }
 
       const contentType = response.headers.get("content-type");
       if (!contentType?.includes("application/json")) {
-        throw new Error("Invalid response (bukan JSON)");
+        throw new Error("Respons server tidak dikenali");
       }
 
       const data = await response.json();
 
       if (!response.ok) {
-        setMessage("");
+        const detail = Array.isArray(data?.errors)
+          ? data.errors.map((e: { message: string }) => e.message).join(", ")
+          : "";
+        setError(detail || data?.message || "Gagal menyimpan artikel");
         return;
       }
 
-      router.push(`/article?success=${encodeURIComponent(data.message)}`);
-    } catch (error: unknown) {
-      const err = error instanceof Error ? error.message : "Terjadi kesalahan saat mengirim data.";
-      console.error("Error:", err);
-      setMessage(err);
+      const success = data?.message || "Artikel berhasil disimpan";
+      router.push(`/article?success=${encodeURIComponent(success)}`);
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Terjadi kesalahan saat mengirim data"
+      );
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -123,14 +155,10 @@ export default function DefaultInputs({ editMode = false, initialData }: Props) 
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <Label>Entity</Label>
+            <Label>Website</Label>
             <Select
-              options={[
-                { value: "RENTAL_MOTOR", label: "Rental Motor" },
-                { value: "RENTAL_IPHONE", label: "Rental iPhone" },
-                { value: "SEWA_APARTMENT", label: "Sewa Apartment" },
-              ]}
-              placeholder="Pilih Entity"
+              options={[...ENTITIES]}
+              placeholder="Pilih website"
               onChange={(value) => setEntity(value)}
               value={entity}
             />
@@ -139,8 +167,8 @@ export default function DefaultInputs({ editMode = false, initialData }: Props) 
             <Label>Status</Label>
             <RadioGroup
               options={[
-                { value: "1", label: "Publish" },
-                { value: "0", label: "Draft" },
+                { value: "1", label: "Terbit" },
+                { value: "0", label: "Draf" },
               ]}
               name="status"
               selectedValue={status}
@@ -162,8 +190,9 @@ export default function DefaultInputs({ editMode = false, initialData }: Props) 
         <div>
           <Label>Konten</Label>
           <textarea
-            className="w-full border px-3 py-2 rounded"
-            rows={5}
+            className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90"
+            rows={8}
+            placeholder="Tulis isi artikel di sini"
             value={content}
             onChange={(e) => setContent(e.target.value)}
           />
@@ -191,20 +220,25 @@ export default function DefaultInputs({ editMode = false, initialData }: Props) 
         <div className="flex gap-3">
           <button
             onClick={handleSubmit}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            disabled={saving}
+            className="rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white shadow-theme-xs transition hover:bg-brand-600 disabled:opacity-60"
           >
-            {editMode ? "Perbarui" : "Simpan"}
+            {saving ? "Menyimpan..." : editMode ? "Perbarui" : "Simpan"}
           </button>
           <button
             type="button"
-            className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400"
+            className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
             onClick={handleCancel}
           >
             Batal
           </button>
         </div>
 
-        {message && <p className="text-green-600">{message}</p>}
+        {error && (
+          <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-400">
+            {error}
+          </p>
+        )}
       </div>
     </ComponentCard>
   );

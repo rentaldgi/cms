@@ -1,7 +1,6 @@
 "use client";
 
 import ArticleTable from "@/components/article/ArticleTable";
-import ComponentCard from "@/components/common/ComponentCard";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -13,56 +12,58 @@ export default function ArticleContent() {
 
   useEffect(() => {
     const message = searchParams.get("success");
-    if (message) {
-      setSuccessMessage(message);
-      setVisible(true);
+    if (!message) return;
 
-      const url = new URL(window.location.href);
-      url.searchParams.delete("success");
-      window.history.replaceState({}, "", url.toString());
+    setSuccessMessage(message);
+    setVisible(true);
 
-      const timeout = setTimeout(() => {
-        setVisible(false);
-      }, 3000);
+    // Hapus ?success= dari URL supaya tidak muncul lagi saat halaman dimuat ulang
+    const url = new URL(window.location.href);
+    url.searchParams.delete("success");
+    window.history.replaceState({}, "", url.toString());
 
-      const cleanup = setTimeout(() => {
-        setSuccessMessage("");
-      }, 4000);
+    const hide = setTimeout(() => setVisible(false), 3000);
+    const clear = setTimeout(() => setSuccessMessage(""), 4000);
 
-      return () => {
-        clearTimeout(timeout);
-        clearTimeout(cleanup);
-      };
-    }
+    return () => {
+      clearTimeout(hide);
+      clearTimeout(clear);
+    };
   }, [searchParams]);
 
   return (
-    <div className="space-y-6 p-6">
-      <ComponentCard title="">
-        <div className="space-y-4 -mt-12">
-          {successMessage && (
-            <div
-              className={`transition-all duration-700 ease-in-out transform ${
-                visible
-                  ? "opacity-100 translate-y-0"
-                  : "opacity-0 -translate-y-2"
-              } bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded text-sm shadow`}
-            >
-              {successMessage}
-            </div>
-          )}
-
-          <div className="flex justify-start">
-            <Link href="/article/create">
-              <div className="inline-block bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg shadow transition">
-                + Tambah Kategori
-              </div>
-            </Link>
-          </div>
-
-          <ArticleTable />
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-800 dark:text-white/90">
+            Artikel
+          </h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Kelola artikel untuk ketiga website
+          </p>
         </div>
-      </ComponentCard>
+
+        <Link
+          href="/article/create"
+          className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white shadow-theme-xs transition hover:bg-brand-600"
+        >
+          + Tambah Artikel
+        </Link>
+      </div>
+
+      {successMessage && (
+        <div
+          className={`rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700 transition-all duration-500 dark:bg-green-500/10 dark:text-green-400 ${
+            visible ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          {successMessage}
+        </div>
+      )}
+
+      <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
+        <ArticleTable />
+      </div>
     </div>
   );
 }

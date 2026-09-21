@@ -7,18 +7,13 @@ import React, {
   useCallback,
 } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
 import {
   ChevronDown,
   MoreHorizontal,
 } from "lucide-react";
-import {
-  GridIcon,
-  ListIcon,
-  UserCircleIcon,
-} from "../icons";
+import { GridIcon, ListIcon } from "../icons";
 
 type SubItem = {
   name: string;
@@ -42,18 +37,8 @@ const navItems: NavItem[] = [
   },
   {
     icon: <ListIcon />,
-    name: "Article",
+    name: "Artikel",
     path: "/article",
-  },
-  {
-    icon: <ListIcon />,
-    name: "Article View",
-    path: "/article-view",
-  },
-  {
-    icon: <UserCircleIcon />,
-    name: "User Profile",
-    path: "/profile",
   },
 ];
 
@@ -227,31 +212,14 @@ const AppSidebar: React.FC = () => {
           !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
         }`}
       >
-        <Link href="/">
-          {isExpanded || isHovered || isMobileOpen ? (
-            <>
-              <Image
-                className="dark:hidden"
-                src="/images/logo/logo.svg"
-                alt="Logo"
-                width={150}
-                height={40}
-              />
-              <Image
-                className="hidden dark:block"
-                src="/images/logo/logo-dark.svg"
-                alt="Logo"
-                width={150}
-                height={40}
-              />
-            </>
-          ) : (
-            <Image
-              src="/images/logo/logo-icon.svg"
-              alt="Logo"
-              width={32}
-              height={32}
-            />
+        <Link href="/" className="flex items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-500 text-sm font-bold text-white">
+            DG
+          </span>
+          {(isExpanded || isHovered || isMobileOpen) && (
+            <span className="text-base font-semibold text-gray-800 dark:text-white/90">
+              Dahlia Group
+            </span>
           )}
         </Link>
       </div>

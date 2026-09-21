@@ -1,67 +1,67 @@
-'use client';
-import React, { useEffect, useState } from 'react';
-import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-  Legend,
-} from 'recharts';
+"use client";
+
+import React from "react";
+import Badge from "@/components/ui/badge/Badge";
+import { ENTITIES, entityLabel } from "@/lib/entities";
 
 interface Props {
   articleCount: number;
-  // categoryCount: number;
+  publishedCount: number;
+  draftCount: number;
+  perEntity: Record<string, number>;
 }
 
-const COLORS = ['#407BFF', '#34D399'];
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+      <p className="text-sm text-gray-500 dark:text-gray-400">{label}</p>
+      <p className="mt-1 text-2xl font-semibold text-gray-800 dark:text-white/90">
+        {value.toLocaleString("id-ID")}
+      </p>
+    </div>
+  );
+}
 
-export default function StatsCards({ articleCount }: Props) {
-  const data = [
-    { name: 'Artikel', value: articleCount },
-    // { name: 'Kategori', value: categoryCount },
-  ];
-
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    setIsClient(true); // run only in client
-  }, []);
+export default function StatsCards({
+  articleCount,
+  publishedCount,
+  draftCount,
+  perEntity,
+}: Props) {
+  const max = Math.max(1, ...ENTITIES.map((e) => perEntity[e.value] ?? 0));
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      {/* Teks Statistik */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h4 className="text-sm text-gray-500">Jumlah Artikel</h4>
-        <p className="text-3xl font-bold text-blue-600 mb-4">{articleCount}</p>
-
-        {/* <h4 className="text-sm text-gray-500">Jumlah Kategori</h4> */}
-        {/* <p className="text-3xl font-bold text-green-500">{categoryCount}</p> */}
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Stat label="Total Artikel" value={articleCount} />
+        <Stat label="Terbit" value={publishedCount} />
+        <Stat label="Draf" value={draftCount} />
       </div>
 
-      {/* Diagram - hanya render di client */}
-      <div className="bg-white p-6 rounded-lg shadow h-[300px]">
-        {isClient && (
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={data}
-                cx="50%"
-                cy="50%"
-                outerRadius={60}
-                fill="#8884d8"
-                dataKey="value"
-                label
-              >
-                {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        )}
+      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+        <h2 className="text-sm font-medium text-gray-800 dark:text-white/90">
+          Artikel per Website
+        </h2>
+
+        <div className="mt-4 space-y-3">
+          {ENTITIES.map((item) => {
+            const count = perEntity[item.value] ?? 0;
+            return (
+              <div key={item.value} className="flex items-center gap-4">
+                <span className="w-32 shrink-0 text-sm text-gray-600 dark:text-gray-400">
+                  {entityLabel(item.value)}
+                </span>
+                <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
+                  <div
+                    className="h-full rounded-full bg-brand-500"
+                    style={{ width: `${(count / max) * 100}%` }}
+                  />
+                </div>
+                <Badge color="gray">{count}</Badge>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

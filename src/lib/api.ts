@@ -1,4 +1,4 @@
-import { BACKEND_URL } from "@/lib/config";
+import { ASSET_BASE_URL, BACKEND_URL } from "@/lib/config";
 
 /**
  * Semua permintaan ke backend lewat sini.
@@ -23,25 +23,7 @@ export function apiFetch(path: string, options: RequestInit = {}) {
 export function assetUrl(path?: string | null) {
   if (!path) return "";
   if (/^https?:\/\//.test(path)) return path;
-  return `${BACKEND_URL}${path.startsWith("/") ? "" : "/"}${path}`;
-}
-
-export async function fetchArticles() {
-  const res = await apiFetch("/article");
-
-  if (!res.ok) {
-    console.warn("Gagal mengambil artikel:", res.status);
-    return [];
-  }
-
-  const data = await res.json();
-
-  // Endpoint mengembalikan array langsung; bentuk { data: [...] } ikut ditangani
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.data)) return data.data;
-
-  console.warn("Bentuk data artikel tidak dikenali:", data);
-  return [];
+  return `${ASSET_BASE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
 }
 
 export async function fetchArticleBySlug(slug: string) {
