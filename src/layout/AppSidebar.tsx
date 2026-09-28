@@ -12,9 +12,11 @@ import { useSidebar } from "../context/SidebarContext";
 import {
   ChevronDown,
   MoreHorizontal,
+  MapPin,
+  BarChart3,
+  MessageCircle,
 } from "lucide-react";
 import { GridIcon, ListIcon } from "../icons";
-import { MapPin } from "lucide-react";
 
 type SubItem = {
   name: string;
@@ -37,12 +39,22 @@ const navItems: NavItem[] = [
     path: "/",
   },
   {
+    icon: <BarChart3 className="w-6 h-6" />,
+    name: "Laporan Bulanan",
+    path: "/reports",
+  },
+  {
     icon: <ListIcon />,
     name: "Artikel",
     path: "/article",
   },
   {
-    icon: <MapPin />,
+    icon: <MessageCircle className="w-6 h-6" />,
+    name: "Admin WhatsApp",
+    path: "/whatsapp-admins",
+  },
+  {
+    icon: <MapPin className="w-6 h-6" />,
     name: "Lokasi",
     path: "/locations",
   },

@@ -9,25 +9,33 @@ import Input from "@/components/form/InputField";
 import FileInput from "@/components/form/FileInput";
 import Select from "@/components/form/Select";
 import RadioGroup from "@/components/form/Radio";
+import RichTextEditor from "@/components/form/RichTextEditor";
 
 import { apiFetch, assetUrl } from "@/lib/api";
 import { ENTITIES } from "@/lib/entities";
+
 interface ArticleData {
   id: number;
   title: string;
   entity: string;
   content: string;
   thumbnail?: string;
-  // Backend mengirim boolean; data lama bisa berupa 0/1 atau "0"/"1"
   status: boolean | string | number;
   publishedAt?: string;
 }
 
-/** Ubah status apa pun bentuknya jadi nilai radio: "1" (terbit) atau "0" (draf). */
 function toStatusValue(status: ArticleData["status"] | undefined) {
   return status === true || status === 1 || status === "1" || status === "true"
     ? "1"
     : "0";
+}
+
+function getTodayString() {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 interface Props {
@@ -43,10 +51,8 @@ export default function DefaultInputs({ editMode = false, initialData }: Props) 
   const [content, setContent] = useState("");
   const [thumbnail, setThumbnail] = useState<File | null>(null);
   const [oldThumbnailUrl, setOldThumbnailUrl] = useState("");
-  const [status, setStatus] = useState("0");
-  // Tanggal terbit asli dipertahankan saat mengedit, supaya tidak berubah
-  // jadi hari ini setiap kali artikel diperbaiki
-  const [publishedAt, setPublishedAt] = useState("");
+  const [status, setStatus] = useState("1");
+  const [publishedAt, setPublishedAt] = useState(getTodayString());
   const [userId] = useState(1);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -59,7 +65,13 @@ export default function DefaultInputs({ editMode = false, initialData }: Props) 
       setEntity(initialData.entity || "");
       setContent(initialData.content || "");
       setStatus(toStatusValue(initialData.status));
-      setPublishedAt(initialData.publishedAt || "");
+      if (initialData.publishedAt) {
+        const raw = initialData.publishedAt;
+        const datePart = raw.includes("T") ? raw.split("T")[0] : raw.slice(0, 10);
+        setPublishedAt(datePart);
+      } else {
+        setPublishedAt(getTodayString());
+      }
       setOldThumbnailUrl(
         initialData.thumbnail ? assetUrl(initialData.thumbnail) : ""
       );
@@ -70,7 +82,7 @@ export default function DefaultInputs({ editMode = false, initialData }: Props) 
     setError("");
 
     if (!entity || !title.trim() || !content.trim()) {
-      setError("Entity, judul, dan konten harus diisi");
+      setError("Website, judul, dan konten harus diisi");
       return;
     }
 
@@ -82,7 +94,6 @@ export default function DefaultInputs({ editMode = false, initialData }: Props) 
     setSaving(true);
 
     const url = editMode && id ? `/admin/article/${id}` : "/admin/article";
-
     const method = editMode ? "PUT" : "POST";
 
     try {
@@ -94,8 +105,8 @@ export default function DefaultInputs({ editMode = false, initialData }: Props) 
         formData.append("title", title);
         formData.append("content", content);
         formData.append("userId", userId.toString());
-        formData.append("status", status);
-        formData.append("publishedAt", publishedAt || new Date().toISOString());
+        formData.append("status", status === "1" ? "true" : "false");
+        formData.append("publishedAt", publishedAt || getTodayString());
 
         if (thumbnail) {
           formData.append("thumbnail", thumbnail);
@@ -114,8 +125,8 @@ export default function DefaultInputs({ editMode = false, initialData }: Props) 
             title,
             content,
             userId,
-            status,
-            publishedAt: publishedAt || new Date().toISOString(),
+            status: status === "1",
+            publishedAt: publishedAt || getTodayString(),
           }),
         });
       }
@@ -153,7 +164,7 @@ export default function DefaultInputs({ editMode = false, initialData }: Props) 
   return (
     <ComponentCard title="">
       <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <Label>Website</Label>
             <Select
@@ -163,6 +174,16 @@ export default function DefaultInputs({ editMode = false, initialData }: Props) 
               value={entity}
             />
           </div>
+
+          <div>
+            <Label>Tanggal Publikasi</Label>
+            <Input
+              type="date"
+              value={publishedAt}
+              onChange={(e) => setPublishedAt(e.target.value)}
+            />
+          </div>
+
           <div>
             <Label>Status</Label>
             <RadioGroup
@@ -183,18 +204,16 @@ export default function DefaultInputs({ editMode = false, initialData }: Props) 
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Judul"
+            placeholder="Judul artikel"
           />
         </div>
 
         <div>
-          <Label>Konten</Label>
-          <textarea
-            className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90"
-            rows={8}
-            placeholder="Tulis isi artikel di sini"
+          <Label>Konten Artikel</Label>
+          <RichTextEditor
             value={content}
-            onChange={(e) => setContent(e.target.value)}
+            onChange={(val) => setContent(val)}
+            placeholder="Tulis isi artikel..."
           />
         </div>
 
@@ -217,11 +236,11 @@ export default function DefaultInputs({ editMode = false, initialData }: Props) 
           />
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex gap-3 pt-2">
           <button
             onClick={handleSubmit}
             disabled={saving}
-            className="rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white shadow-theme-xs transition hover:bg-brand-600 disabled:opacity-60"
+            className="rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-medium text-white shadow-theme-xs transition hover:bg-brand-600 disabled:opacity-60"
           >
             {saving ? "Menyimpan..." : editMode ? "Perbarui" : "Simpan"}
           </button>
@@ -243,3 +262,5 @@ export default function DefaultInputs({ editMode = false, initialData }: Props) 
     </ComponentCard>
   );
 }
+
+

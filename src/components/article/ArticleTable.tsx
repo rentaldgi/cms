@@ -28,7 +28,7 @@ interface Article {
   thumbnail: string;
   publishedAt: string;
   // Backend mengirim boolean, versi lama mengirim 0/1
-  status: boolean | number;
+  status: boolean | number | string;
   createdAt?: string;
   /** Jumlah pembaca, dari endpoint /admin/article */
   views?: number;
@@ -54,7 +54,7 @@ const ITEMS_PER_PAGE = 10;
 const headers = [
   { label: "Artikel", className: "" },
   { label: "Website", className: "hidden sm:table-cell" },
-  { label: "Tanggal", className: "hidden lg:table-cell" },
+  { label: "Tanggal Publikasi", className: "hidden lg:table-cell" },
   { label: "Dilihat", className: "hidden md:table-cell" },
   { label: "Status", className: "" },
   { label: "Aksi", className: "" },
@@ -71,7 +71,7 @@ export default function ArticleTable() {
   const [currentPage, setCurrentPage] = useState(1);
   const [sortBy, setSortBy] = useState<SortKey>("newest");
   const [entityFilter, setEntityFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"" | "published" | "draft">("");
+  const [statusFilter, setStatusFilter] = useState<"" | "published" | "scheduled" | "draft">("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const { searchTerm, setSearchTerm } = useSearch();
@@ -161,8 +161,39 @@ export default function ArticleTable() {
         })
       : "-";
 
-  const isPublished = (status: boolean | number) =>
-    status === true || status === 1;
+  const getArticleStatusBadge = (article: Article) => {
+    const isEnabled =
+      article.status === true ||
+      article.status === 1 ||
+      article.status === "1" ||
+      article.status === "true";
+
+    if (!isEnabled) {
+      return { label: "Draf", color: "amber" as const, isScheduled: false };
+    }
+
+    if (article.publishedAt) {
+      const rawDate = article.publishedAt.includes("T")
+        ? article.publishedAt.split("T")[0]
+        : article.publishedAt.slice(0, 10);
+      const d = new Date();
+      const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+      if (rawDate > today) {
+        const pubDate = new Date(article.publishedAt);
+        const formattedDate = !isNaN(pubDate.getTime())
+          ? pubDate.toLocaleDateString("id-ID", { day: "numeric", month: "short" })
+          : rawDate;
+        return {
+          label: `Terjadwal (${formattedDate})`,
+          color: "blue" as const,
+          isScheduled: true,
+        };
+      }
+    }
+
+    return { label: "Terbit", color: "green" as const, isScheduled: false };
+  };
 
   const hasFilter = Boolean(
     searchTerm || entityFilter || statusFilter || dateFrom || dateTo
@@ -253,12 +284,13 @@ export default function ArticleTable() {
             id="filter-status"
             value={statusFilter}
             onChange={(e) =>
-              setStatusFilter(e.target.value as "" | "published" | "draft")
+              setStatusFilter(e.target.value as "" | "published" | "scheduled" | "draft")
             }
             className="h-11 w-full rounded-lg border border-gray-200 bg-white px-4 text-sm text-gray-700 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90"
           >
             <option value="">Semua status</option>
             <option value="published">Terbit</option>
+            <option value="scheduled">Terjadwal</option>
             <option value="draft">Draf</option>
           </select>
         </div>
@@ -354,79 +386,82 @@ export default function ArticleTable() {
                 </TableCell>
               </TableRow>
             ) : (
-              articles.map((article) => (
-                <TableRow
-                  key={article.id}
-                  className="transition hover:bg-gray-50 dark:hover:bg-white/[0.03]"
-                >
-                  <TableCell className="px-4 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="hidden h-12 w-16 shrink-0 overflow-hidden rounded-lg bg-gray-100 sm:block dark:bg-white/10">
-                        {article.thumbnail?.trim() ? (
-                          <Image
-                            src={assetUrl(article.thumbnail)}
-                            alt={article.title}
-                            width={64}
-                            height={48}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <span className="flex h-full w-full items-center justify-center text-[10px] text-gray-400">
-                            Tanpa foto
-                          </span>
-                        )}
+              articles.map((article) => {
+                const statusBadge = getArticleStatusBadge(article);
+                return (
+                  <TableRow
+                    key={article.id}
+                    className="transition hover:bg-gray-50 dark:hover:bg-white/[0.03]"
+                  >
+                    <TableCell className="px-4 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="hidden h-12 w-16 shrink-0 overflow-hidden rounded-lg bg-gray-100 sm:block dark:bg-white/10">
+                          {article.thumbnail?.trim() ? (
+                            <Image
+                              src={assetUrl(article.thumbnail)}
+                              alt={article.title}
+                              width={64}
+                              height={48}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <span className="flex h-full w-full items-center justify-center text-[10px] text-gray-400">
+                              Tanpa foto
+                            </span>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="line-clamp-2 font-medium text-gray-800 dark:text-white/90">
+                            {article.title}
+                          </p>
+                          <p className="mt-0.5 hidden max-w-xs truncate text-xs text-gray-500 lg:block dark:text-gray-400">
+                            {article.excerpt}
+                          </p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="line-clamp-2 font-medium text-gray-800 dark:text-white/90">
-                          {article.title}
-                        </p>
-                        <p className="mt-0.5 hidden max-w-xs truncate text-xs text-gray-500 lg:block dark:text-gray-400">
-                          {article.excerpt}
-                        </p>
+                    </TableCell>
+
+                    <TableCell className="hidden px-4 py-4 sm:table-cell">
+                      <Badge color="blue">{entityLabel(article.entity)}</Badge>
+                    </TableCell>
+
+                    <TableCell className="hidden whitespace-nowrap px-4 py-4 text-gray-600 lg:table-cell dark:text-gray-400">
+                      {formatDate(article.publishedAt)}
+                    </TableCell>
+
+                    <TableCell className="hidden whitespace-nowrap px-4 py-4 text-gray-700 md:table-cell dark:text-gray-300">
+                      {(article.views ?? 0).toLocaleString("id-ID")}
+                    </TableCell>
+
+                    <TableCell className="px-4 py-4">
+                      <Badge color={statusBadge.color}>
+                        {statusBadge.label}
+                      </Badge>
+                    </TableCell>
+
+                    <TableCell className="w-20 whitespace-nowrap px-4 py-4">
+                      <div className="flex items-center gap-1">
+                        <Link
+                          href={`/article/edit/${article.slug}`}
+                          title="Ubah artikel"
+                          className="rounded-lg p-2 text-gray-500 transition hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-500/10"
+                        >
+                          <PencilSquareIcon className="h-5 w-5" />
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(article)}
+                          disabled={deletingId === article.id}
+                          title="Hapus artikel"
+                          className="rounded-lg p-2 text-gray-500 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-40 dark:hover:bg-red-500/10"
+                        >
+                          <TrashIcon className="h-5 w-5" />
+                        </button>
                       </div>
-                    </div>
-                  </TableCell>
-
-                  <TableCell className="hidden px-4 py-4 sm:table-cell">
-                    <Badge color="blue">{entityLabel(article.entity)}</Badge>
-                  </TableCell>
-
-                  <TableCell className="hidden whitespace-nowrap px-4 py-4 text-gray-600 lg:table-cell dark:text-gray-400">
-                    {formatDate(article.publishedAt)}
-                  </TableCell>
-
-                  <TableCell className="hidden whitespace-nowrap px-4 py-4 text-gray-700 md:table-cell dark:text-gray-300">
-                    {(article.views ?? 0).toLocaleString("id-ID")}
-                  </TableCell>
-
-                  <TableCell className="px-4 py-4">
-                    <Badge color={isPublished(article.status) ? "green" : "amber"}>
-                      {isPublished(article.status) ? "Terbit" : "Draf"}
-                    </Badge>
-                  </TableCell>
-
-                  <TableCell className="w-20 whitespace-nowrap px-4 py-4">
-                    <div className="flex items-center gap-1">
-                      <Link
-                        href={`/article/edit/${article.slug}`}
-                        title="Ubah artikel"
-                        className="rounded-lg p-2 text-gray-500 transition hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-500/10"
-                      >
-                        <PencilSquareIcon className="h-5 w-5" />
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(article)}
-                        disabled={deletingId === article.id}
-                        title="Hapus artikel"
-                        className="rounded-lg p-2 text-gray-500 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-40 dark:hover:bg-red-500/10"
-                      >
-                        <TrashIcon className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
@@ -442,3 +477,4 @@ export default function ArticleTable() {
     </div>
   );
 }
+
