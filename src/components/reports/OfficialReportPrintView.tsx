@@ -140,8 +140,26 @@ export default function OfficialReportPrintView({ report }: Props) {
     }
   };
 
+  const printDocumentTitle = `Laporan Pengelolaan Website Dahlia Group Bulan ${report.period.monthName} ${report.period.year}`;
+
+  // Automatically update page title when printing (via shortcut Ctrl+P or button)
+  useEffect(() => {
+    const handleBeforePrint = () => {
+      document.title = printDocumentTitle;
+    };
+    window.addEventListener("beforeprint", handleBeforePrint);
+    return () => {
+      window.removeEventListener("beforeprint", handleBeforePrint);
+    };
+  }, [printDocumentTitle]);
+
   const handlePrint = () => {
+    const originalTitle = document.title;
+    document.title = printDocumentTitle;
     window.print();
+    setTimeout(() => {
+      document.title = originalTitle;
+    }, 2000);
   };
 
   /* -------------------------------------------------------------------------- */
@@ -403,7 +421,7 @@ export default function OfficialReportPrintView({ report }: Props) {
             DAHLIA GROUP
           </h1>
           <h2 className="text-sm sm:text-base font-bold tracking-wider uppercase font-sans mt-1 text-black">
-            LAPORAN PENGELOLAAN WEBSITE BULAN {report.period.monthName.toUpperCase()}{" "}
+            LAPORAN PENGELOLAAN WEBSITE DAHLIA GROUP BULAN {report.period.monthName.toUpperCase()}{" "}
             {report.period.year}
           </h2>
         </div>
@@ -597,23 +615,31 @@ export default function OfficialReportPrintView({ report }: Props) {
       </div>
 
       {/* Print CSS Rules for Exact A4 Pagination */}
-      <style jsx global>{`
+      <style>{`
         @media print {
           @page {
             size: A4 portrait;
             margin: 1.5cm 1.5cm 1.5cm 1.5cm;
           }
-          body {
+          body, html {
             background-color: #ffffff !important;
             color: #000000 !important;
             font-family: Arial, Helvetica, sans-serif !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
           /* Hide sidebar, navbar header, buttons, and CMS chrome elements */
           header,
           aside,
           nav,
+          [role="banner"],
+          [role="navigation"],
           .print\\:hidden {
             display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
           main {
             padding: 0 !important;

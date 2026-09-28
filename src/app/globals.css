@@ -317,3 +317,28 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   opacity: 0.8;
   cursor: grabbing; /* Changes the cursor to indicate dragging */
 }
+
+/* ==========================================================================
+   Global Print Styles
+   ========================================================================== */
+@media print {
+  header,
+  aside,
+  nav,
+  .print\:hidden,
+  [role="banner"],
+  [role="navigation"] {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body, html {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+}
