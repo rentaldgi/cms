@@ -4,8 +4,6 @@ import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
-  Calendar,
-  Download,
   TrendingUp,
   TrendingDown,
   Users,
@@ -16,11 +14,9 @@ import {
   RefreshCw,
   Award,
   ChevronRight,
-  BarChart2,
-  FileText,
 } from "lucide-react";
 import { apiFetch, assetUrl } from "@/lib/api";
-import { ENTITIES, entityLabel, brandName, brandDomain } from "@/lib/entities";
+import { ENTITIES } from "@/lib/entities";
 import Badge from "@/components/ui/badge/Badge";
 
 interface MonthlyReportData {

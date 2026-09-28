@@ -69,21 +69,27 @@ export default function RichTextEditor({
   // Sinkronisasi value dari luar ke dalam editor jika berbeda
   useEffect(() => {
     const normalized = normalizeToRichTextHtml(value);
-    if (normalized !== htmlContent) {
-      setHtmlContent(normalized);
-      if (editorRef.current && !isUpdatingRef.current) {
-        editorRef.current.innerHTML = normalized;
+    setHtmlContent((prev) => {
+      if (normalized !== prev) {
+        if (editorRef.current && !isUpdatingRef.current) {
+          editorRef.current.innerHTML = normalized;
+        }
+        return normalized;
       }
-    }
+      return prev;
+    });
   }, [value]);
 
-  // Initial load content
+  // Initial load content saat ganti tab
   useEffect(() => {
     if (editorRef.current && activeTab === "visual") {
-      const normalized = normalizeToRichTextHtml(htmlContent);
-      if (editorRef.current.innerHTML !== normalized) {
-        editorRef.current.innerHTML = normalized;
-      }
+      setHtmlContent((prev) => {
+        const normalized = normalizeToRichTextHtml(prev);
+        if (editorRef.current && editorRef.current.innerHTML !== normalized) {
+          editorRef.current.innerHTML = normalized;
+        }
+        return normalized;
+      });
     }
   }, [activeTab]);
 

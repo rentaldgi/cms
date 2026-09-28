@@ -3,8 +3,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Calendar,
-  Download,
-  Printer,
   Filter,
   RefreshCw,
   FileText,
@@ -152,49 +150,6 @@ export default function MonthlyReportView() {
   useEffect(() => {
     fetchReport();
   }, [fetchReport]);
-
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const handleExportCSV = () => {
-    if (!report) return;
-
-    let csv = "LAPORAN BULANAN DAHLIA GROUP\n";
-    csv += `Periode: ${report.period.label}\n\n`;
-
-    csv += "RINGKASAN TRAFFIC & LEADS\n";
-    csv += `Pengunjung Website,${report.metrics.websiteViews.total} (Bulan lalu: ${report.metrics.websiteViews.prevTotal})\n`;
-    csv += `Leads WhatsApp,${report.metrics.whatsappClicks.total} (Bulan lalu: ${report.metrics.whatsappClicks.prevTotal})\n`;
-    csv += `Konversi Leads,${report.metrics.conversionRate.ratePercentage}%\n`;
-    csv += `Pembaca Artikel,${report.metrics.articleViews.total}\n`;
-    csv += `Artikel Diterbitkan,${report.metrics.newArticles.total}\n\n`;
-
-    csv += "PERFORMA PER WEBSITE\n";
-    csv += "Website,Pengunjung Website,Klik WhatsApp,Pembaca Artikel,Tingkat Konversi (%)\n";
-    report.entityBreakdown.forEach((item) => {
-      csv += `"${item.brandName || item.entityLabel}",${item.websiteViews},${item.whatsappClicks},${item.articleViews},${item.conversionRate}%\n`;
-    });
-    csv += "\n";
-
-    csv += "LEADS PER ADMIN WHATSAPP\n";
-    csv += "Nama Admin,Nomor Telepon,Brand/Website,Total Leads\n";
-    report.adminBreakdown.forEach((admin) => {
-      csv += `"${admin.name}","${admin.phoneNumber}","${admin.brandName || admin.entityLabel}",${admin.totalClicks}\n`;
-    });
-
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `Laporan_Dahlia_Group_${report.period.monthName}_${report.period.year}.csv`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   return (
     <div className="space-y-6">

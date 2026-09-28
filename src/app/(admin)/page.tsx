@@ -1,11 +1,6 @@
-import StatsCards from "@/components/dashboard/StatsCards";
-import LatestArticles from "@/components/dashboard/LatestArticles";
 import AnalyticsDashboard from "@/components/dashboard/AnalyticsDashboard";
-import { fetchDashboardSummary } from "@/lib/dashboard";
 
-export default async function AdminDashboardPage() {
-  const summary = await fetchDashboardSummary();
-
+export default function AdminDashboardPage() {
   return (
     <div className="space-y-6">
       <div>
@@ -17,8 +12,8 @@ export default async function AdminDashboardPage() {
         </p>
       </div>
 
-      {/* Analytics Dashboard with month/year/brand filters, chart, and leads distribution */}
       <AnalyticsDashboard />
     </div>
   );
 }
+
